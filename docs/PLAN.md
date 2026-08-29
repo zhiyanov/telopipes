@@ -422,9 +422,15 @@ Build once: the first build pulls ~2–3 GB of base layers under emulation.
 
 ## 11. Phases
 
-**Phase 0 — Environment proof (before any app code). DONE — see `docs/ENVIRONMENT.md`.**
-Established that amd64 emulation cannot work on a 16 KB-page kernel and that native arm64 does,
-with every dependency available. Remaining: build both
+**Phase 0 — Environment proof. COMPLETE — see `docs/ENVIRONMENT.md`.** Established that amd64
+emulation cannot work on a 16 KB-page kernel and that native arm64 does; built both images
+(5 min / 30 s); confirmed the vendored TeloBP is byte-identical to the pinned upstream commit;
+and **reproduced both pipelines byte-for-byte** against `reference/results/` using the unpatched
+scripts — pipeline A `n=4362, median=4589.5` with identical alignment records and per-read
+table, pipeline B `n=5049, median=4378.0` with all three outputs identical. Two things it
+turned up that the design must carry: Bioconductor 3.19 needs `pwalign` for
+`pairwiseAlignment()`, and pandarallel needs `--shm-size` because podman caps `/dev/shm` at
+64 MB. Superseded phase-0 text: build both
 images and time it. Check the Bioconductor image's default USER (rootless write access to `/work`)
 and whether it ships `python3`/`pip` for Snakemake.
 Diff vendored TeloBP against `05bd9d8`. Re-run the reference's two commands under podman with the

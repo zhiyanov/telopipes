@@ -132,6 +132,44 @@ per-read table shows.
 `writexl` is also installed, purely so the unpatched script's `library(writexl)` call succeeds.
 It is never actually used; phase 1 removes both the call and the package.
 
+## Finding 5 — pipeline B reproduces exactly too, but needs `--shm-size`
+
+`run_telonp.py`, unpatched, on the same FASTQ. All three outputs diff clean against
+`reference/results/telonp/`:
+
+```
+total_reads 5961 | passed 5049 | pass_rate 0.8470
+mean 4470.6 | median 4378.0 | sd 2124.6 | min 6 | max 35844
+err_init 674 | err_fusedRead 10 | err_strandType 228 | err_seqNotFound 0
+```
+
+The first attempt failed with `OSError: [Errno 28] No space left on device` inside
+`pandarallel/core.py`'s `pickle.dump`, on a machine with 83 GB free. **pandarallel transfers
+DataFrame chunks through `/dev/shm`, and podman defaults that to 64 MB.** Re-running with
+`--shm-size=2g` succeeded.
+
+This is a direct confirmation of the concern about pandarallel's fork-and-pickle model: peak
+transfer volume scales with total sequence bytes × workers. The planned `run_telonp.py` v2
+(streaming + `ProcessPoolExecutor`, no pandarallel) removes the problem entirely. Until then
+the runner must pass `--shm-size`, and any pipeline kept on pandarallel needs it.
+
+## Runtimes on this host (whole reference dataset, 5,961 reads / 248 MB FASTQ)
+
+| Step | Time |
+|---|---|
+| Pipeline A — `align.sh` (minimap2 + sort + index, 8 threads) | 1 min 02 s |
+| Pipeline A — `run_analysis.R` (scanBam + barcode alignment + 19 plots) | 20 s |
+| Pipeline B — `run_telonp.py` (8 pandarallel workers) | 37 s |
+
+Fast enough that the "one run at a time" scheduler is comfortably adequate, and fast enough
+that the full-dataset reproduction is practical as a routine check rather than an overnight job.
+
+## Verdict
+
+**GO.** Native arm64 reproduces both published pipelines byte-for-byte. The architecture
+question is settled and the baseline is trustworthy, so the phase 1 source patches can be
+validated by diffing against it.
+
 ## Finding 3 — the vendored TeloBP matches upstream exactly
 
 The reference project vendors GreiderLab TeloBP as a local editable install. Installing it from
