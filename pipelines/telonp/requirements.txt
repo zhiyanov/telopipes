@@ -1,0 +1,13 @@
+# Pinned deliberately. TeloBP's setup.py has its version constraints commented out, which is
+# how the reference environment ended up resolving pandas 3.0.5 for a package developed
+# against 2.2. See docs/PATCHES.md.
+# biopython 1.87 matches what produced reference/results/; 1.83 has no arm64 wheel and
+# python:3.12-slim ships no compiler.
+biopython==1.87
+numpy==2.0.2
+pandas==2.2.3
+matplotlib==3.9.2
+pandarallel==1.6.5
+pyparsing==3.1.4
+snakemake==9.26.1
+TeloBP @ git+https://github.com/GreiderLab/TeloBP@05bd9d8bb27b9d52e69e9c1c4b6607744365ea9f
