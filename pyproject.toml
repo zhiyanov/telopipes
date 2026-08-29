@@ -4,9 +4,11 @@ version = "0.1.0"
 description = "Telomere length measurement from nanopore reads, for lab use"
 requires-python = ">=3.11"
 dependencies = [
+    "matplotlib>=3.11.1",
     "pydantic>=2",
     "pydantic-settings>=2",
     "PyYAML>=6",
+    "sqlmodel>=0.0.42",
 ]
 
 [project.scripts]

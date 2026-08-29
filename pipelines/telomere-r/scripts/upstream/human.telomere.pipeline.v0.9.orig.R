@@ -193,7 +193,7 @@ mapStatsFn <- function(reads){
 
 ## =============== ##
 ## input: reads object
-##        chrArmLn: chr arm length from reference genome
+## chrArmLn: chr arm length from reference genome
 ##    extracts chromosome from bam rname object
 ##    calculates end position of mapping in reference coordinates
 ##    for mappings to q arm, convert to negative reference coordinates

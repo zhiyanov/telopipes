@@ -13,8 +13,9 @@ so nothing bioinformatics-related is installed on the host.
 
 ## Status
 
-Phases 0 and 1 are complete: both pipelines run from the command line and reproduce the
-published reference results byte-for-byte. There is no web interface yet.
+Phases 0–2 are complete: both pipelines run from the command line, reproduce the published
+reference results byte-for-byte, and are normalised into a common schema with figures. There
+is no web interface yet.
 
 - [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) — what the host can and cannot do, with evidence
 - [`docs/PATCHES.md`](docs/PATCHES.md) — every deviation from the upstream scripts, and how it was verified
@@ -36,10 +37,44 @@ telomers run telomere-r \
     --sample-label mysample --barcode-name NB65uq
 ```
 
-Each run gets a self-describing directory under `data/runs/<id>/` holding `run.json` (what
-produced it), `run.log` and `work/` (everything the pipeline wrote). Re-running with the same
-`--run-id` resumes: Snakemake skips completed steps, so an interrupted pipeline-A run picks up
-at the analysis without repeating the alignment.
+Registering inputs is optional but hardlinks them, so cataloguing files already on the machine
+costs no disk:
+
+```bash
+export TELOMERS_IMPORT_DIRS='["/data/nanopore"]'   # registering by path is off until you say where
+telomers datasets   add --registered /data/nanopore/sample.fastq
+telomers references check  cut.MATERNAL.fasta      # dry run: is this reference usable?
+telomers references add --registered cut.MATERNAL.fasta
+
+telomers runs                      # what has been run
+telomers results <run-id> --by-arm # canonical summary
+telomers reindex                   # rebuild the index by walking the data root
+```
+
+Each run gets a self-describing directory under `data/runs/<id>/`:
+
+```
+run.json     what produced it: pipeline, image, inputs, parameters
+run.log      the container's output
+work/        everything the pipeline itself wrote, including its own figures
+results/     per_read.csv, summary.json, per_arm.csv and three figures
+```
+
+Because every fact also lives on disk, the SQLite index is a cache — `telomers reindex`
+rebuilds it. That is why there are no database migrations.
+
+Re-running with the same `--run-id` resumes: Snakemake skips completed steps, so an interrupted
+pipeline-A run picks up at the analysis without repeating the alignment.
+
+### A note on the reference genome
+
+Pipeline A needs a *cut* reference: telomere repeats removed, every chromosome end trimmed to
+the same length, one record per arm, named `chr01p_MATERNAL`. Producing one is out of scope
+here — use TeloBP's `trimGenome.py` — but `telomers references check` will tell you whether
+yours is usable and exactly what is wrong if not. This matters more than it looks: a reference
+whose records are not all the same length silently corrupts q-arm telomere lengths while
+leaving p arms perfect, and unpadded contig names (`chr1p` rather than `chr01p`) do not error
+at all, they just sort wrongly throughout.
 
 `scripts/reproduce-reference.sh` re-runs both pipelines on the published HG002 dataset and
 diffs every output against `reference/results/`. It is the regression test for any change to
