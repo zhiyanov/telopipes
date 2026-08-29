@@ -1,0 +1,69 @@
+# Pipeline A: mapping-based telomere length (Karimian et al., Science 2024, Method 1).
+#
+# This runs INSIDE telomers/pipeline-a, not on the host. Snakemake handles the two-step DAG,
+# incremental re-execution (an interrupted run resumes at `analyze` without redoing the
+# alignment) and per-rule logging; the application just starts one container per run. Every
+# method in scope is a single-image pipeline, which is what makes that possible -- see
+# docs/PLAN.md section 2.
+#
+# Paths: the container is started with -w /work, the run's only writable mount. Inputs are
+# mounted read-only at fixed paths and named in config.yaml, which the app writes.
+
+configfile: "/work/config.yaml"
+
+
+rule all:
+    input:
+        "r_analysis/reads.table.txt",
+        "r_analysis/reads.table.all.txt",
+        "r_analysis/summary.overall.csv",
+        "r_analysis/summary.by_chr.csv",
+
+
+rule align:
+    input:
+        reads=config["reads"],
+        ref=config["reference"],
+    output:
+        bam="aligned.sort.bam",
+        bai="aligned.sort.bam.bai",
+        flagstat="flagstat.txt",
+    threads: config.get("threads", 4)
+    log:
+        "logs/align.log",
+    shell:
+        "bash /opt/telomers/align.sh {input.ref} {input.reads} {output.bam} {threads} > {log} 2>&1"
+
+
+rule analyze:
+    input:
+        bam="aligned.sort.bam",
+        bai="aligned.sort.bam.bai",
+    output:
+        table="r_analysis/reads.table.txt",
+        table_all="r_analysis/reads.table.all.txt",
+        overall="r_analysis/summary.overall.csv",
+        by_chr="r_analysis/summary.by_chr.csv",
+    params:
+        p=config,
+    threads: config.get("threads", 4)
+    log:
+        "logs/analyze.log",
+    # Plots are deliberately not declared as outputs: every png() call in telobp_functions.R
+    # sits inside try({}), so a plotting failure silently yields fewer files and must not fail
+    # the run. The app reports how many were produced.
+    shell:
+        "Rscript /opt/telomers/run_analysis.R"
+        " --bam {input.bam}"
+        " --outdir r_analysis"
+        " --exp-name '{params.p[sample_label]}'"
+        " --chr-arm-ln {params.p[chr_arm_ln]}"
+        " --barcode-name {params.p[barcode_name]}"
+        " --barcode-seq {params.p[barcode_seq]}"
+        " --read-len-min {params.p[read_len_min]}"
+        " --aln-sc-th {params.p[aln_score_threshold]}"
+        " --map-start-th {params.p[map_start_threshold]}"
+        " --seq-ln {params.p[tag_search_window]}"
+        " --threads {threads}"
+        " --emit-all"
+        " > {log} 2>&1"

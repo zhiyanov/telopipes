@@ -146,7 +146,8 @@ processBamFn <- function(bamFN, expN,  chrArmLn=500000, readLnMin=3000, nThreads
 ##       plots of mapping and telomere statistics
 ##       input object with added analysis results
 
-alignWriteTableFn <- function(reads, expN, tags, seqLn=300L, alnScTh=20, mapStartTh=1000){
+## PATCH: emitAll added -- see writeTelTableFn below and docs/PATCHES.md.
+alignWriteTableFn <- function(reads, expN, tags, seqLn=300L, alnScTh=20, mapStartTh=1000, emitAll=FALSE){
 
     for (tagN in names(tags)){
 
@@ -155,7 +156,8 @@ alignWriteTableFn <- function(reads, expN, tags, seqLn=300L, alnScTh=20, mapStar
         reads <- align2tagPQchrFn(reads=reads, expN=expN, tagN = tagN, tagSeq = tags[[tagN]], seqLn=seqLn, alnScTh=alnScTh)
 
         ## write table to txt file
-        writeTelTableFn(reads=reads, expN=expN, tagN=tagN, fileNTagged=paste0("reads.table_", expN, ".prim.", tagN, "_alnScTh.", alnScTh, ".txt"), posTh = mapStartTh, alnScTh=alnScTh)
+        writeTelTableFn(reads=reads, expN=expN, tagN=tagN, fileNTagged=paste0("reads.table_", expN, ".prim.", tagN, "_alnScTh.", alnScTh, ".txt"), posTh = mapStartTh, alnScTh=alnScTh,
+                        fileNAll=if (emitAll) paste0("reads.table.all_", expN, ".prim.", tagN, "_alnScTh.", alnScTh, ".txt") else NULL)
 
     }
 
@@ -369,7 +371,7 @@ align2tagPQchrFn <- function(reads, expN, tagSeq, tagN, seqLn=300L, alnScTh=20, 
 ##   txt file with table of mapping statistics and tag alignments incluiding telomere lengths
 ##   returns object containing same data written out to file
 
-writeTelTableFn <- function(reads, expN, tagN, fileNTagged, posTh = 1000, alnScTh=20, plChrStats=TRUE){
+writeTelTableFn <- function(reads, expN, tagN, fileNTagged, posTh = 1000, alnScTh=20, plChrStats=TRUE, fileNAll=NULL){
 
     cat(paste0("\nNr mapped reads with alignment score above threshold ", alnScTh, ": ", sum(indAlnScTh <- reads[[tagN]]>=alnScTh, na.rm=TRUE)), sep="\n")
     indAlnScTh[is.na(indAlnScTh)] <- F
@@ -382,6 +384,30 @@ writeTelTableFn <- function(reads, expN, tagN, fileNTagged, posTh = 1000, alnScT
 
     indTagged <- indAlnScTh & indMapPosTh & indPosTel
     indNonTagged <- !(indAlnScTh) & indMapPosTh & indPosTel
+
+    ## PATCH: optionally write the same table for EVERY primary read, carrying the reason each
+    ## one was kept or dropped. All three indicator vectors already exist above; upstream just
+    ## never wrote them out, so read accounting could only be scraped from stdout. This is what
+    ## makes the funnel (5,961 -> 4,929 -> 4,362) real data. See docs/PATCHES.md.
+    if (!is.null(fileNAll)) try({
+        indMapPosThNA <- indMapPosTh; indMapPosThNA[is.na(indMapPosThNA)] <- FALSE
+        telAllDf <- data.frame("qname"=reads$qname, "qwidth"=reads$qwidth, "chr"=reads$chr,
+                               "strand"=reads$strand, "posStart"=reads$pos, "posEnd"=reads$posEnd,
+                               "mapPosFromTel"=reads$mapStart, "mapq"=reads$mapq,
+                               "Telomere+Adap"=reads$Tel)
+        telAllDf[paste0("alnSc.", tagN)] <- reads[[tagN]]
+        telAllDf$pass_aln_score    <- indAlnScTh
+        telAllDf$pass_map_start    <- indMapPosThNA
+        telAllDf$pass_pos_telomere <- indPosTel
+        telAllDf$qc_status <- ifelse(indTagged, "pass", "fail")
+        ## Report the first failing filter, in the order the pipeline conceptually applies them.
+        telAllDf$qc_reason <- ifelse(indTagged, "",
+                              ifelse(!indPosTel,        "negative_or_missing_telomere",
+                              ifelse(!indMapPosThNA,    "map_start_too_internal",
+                                                        "barcode_below_threshold")))
+        write.table(telAllDf, file=fileNAll, row.names=F, sep="\t", quote=F)
+        cat(paste0("\nWrote all-reads table (", nrow(telAllDf), " primary reads): ", fileNAll), sep="\n")
+    })
 
     ## Build table to write out and make plots
     try({

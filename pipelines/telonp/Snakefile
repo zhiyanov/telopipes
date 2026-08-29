@@ -1,0 +1,38 @@
+# Pipeline B: TeloNP, sequence-based telomere boundary detection (Karimian et al., Science
+# 2024, Method 2). Reference-free, so there is no alignment step and no per-chromosome output.
+#
+# Runs INSIDE telomers/pipeline-b. See the header of pipelines/telomere-r/Snakefile.
+
+configfile: "/work/config.yaml"
+
+SAMPLE = config["sample_label"]
+
+
+rule all:
+    input:
+        f"{SAMPLE}.telonp.all.csv",
+        f"{SAMPLE}.telonp.csv",
+        f"{SAMPLE}.telonp.summary.txt",
+
+
+rule telonp:
+    input:
+        reads=config["reads"],
+    output:
+        all_csv=f"{SAMPLE}.telonp.all.csv",
+        passed_csv=f"{SAMPLE}.telonp.csv",
+        summary=f"{SAMPLE}.telonp.summary.txt",
+    params:
+        sample=SAMPLE,
+        chunk_reads=config.get("chunk_reads", 2000),
+    threads: config.get("workers", 4)
+    log:
+        "logs/telonp.log",
+    # The histogram PNG is not a declared output: it is only produced when at least one read
+    # passes, and a sample where none do is a real result, not a failure.
+    shell:
+        "python /opt/telomers/run_telonp.py {input.reads} ."
+        " --sample '{params.sample}'"
+        " --workers {threads}"
+        " --chunk-reads {params.chunk_reads}"
+        " > {log} 2>&1"

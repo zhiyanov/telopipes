@@ -94,3 +94,59 @@ the image, where TeloBP is in site-packages and the driver is in `/opt/telomers`
 import now reports itself instead of silently half-working.
 
 **Verified:** all three outputs byte-identical to `reference/results/telonp/`.
+
+## P5 — `run_analysis.R`: named arguments, literal barcodes, stable filenames
+
+Three changes to our own driver, none of which alter results.
+
+**Named arguments** (`optparse`) replace the five positional ones. `readLnMin`, `alnScTh`,
+`mapStartTh` and `seqLn` were hardcoded in the call to `alignWriteTableFn()`; they are now
+`--read-len-min`, `--aln-sc-th`, `--map-start-th` and `--seq-ln`, which is what lets the
+Snakefile and the eventual web form expose them.
+
+**`--barcode-seq` accepts a literal sequence.** Upstream resolved a *name* with `get()`, which
+works only for the 18 TeloTags defined in `telobp_functions.R` and otherwise fails with a bare
+`Error: object 'NB99uq' not found` from inside R. A name is still accepted via
+`--barcode-name`, but an unknown one now produces a message listing the known tags and
+pointing at `--barcode-seq`.
+
+**Stable output filenames.** Upstream baked the experiment name, tag name and threshold into
+`reads.table_<exp>.prim.Samp.<bc>_alnScTh.20.txt`. The driver renames the produced files to
+`reads.table.txt`, `reads.table.all.txt`, `summary.overall.csv` and `summary.by_chr.csv` so
+Snakemake can declare them as outputs without globbing. Renaming in the driver rather than
+changing `telobp_functions.R` keeps the shared upstream file closer to its original.
+
+**Verified:** reproduction clean, running with `--barcode-seq TTCTCAGTCTTCCTCCAGACAAGG` — so
+the literal-sequence path is confirmed to give the same answer as the name lookup.
+
+## P6 — `--emit-all`: write the reads the filters reject
+
+`writeTelTableFn()` computes `indAlnScTh`, `indMapPosTh` and `indPosTel` per read, then writes
+out only the rows where all three hold. The rejected reads, and the reason, were discarded —
+so read accounting could only be scraped from stdout.
+
+With `--emit-all` the same table is written for every primary read, plus `pass_aln_score`,
+`pass_map_start`, `pass_pos_telomere`, `qc_status` and `qc_reason` (the first failing filter,
+in the order the pipeline conceptually applies them). On the reference dataset:
+
+```
+4732 primary reads (>= 3 kb)
+  4362  pass                            <- byte-identical to the tagged table
+   347  negative_or_missing_telomere
+    21  map_start_too_internal
+     2  barcode_below_threshold
+```
+
+This is what makes the read funnel a first-class result rather than a log message, and it puts
+pipeline A on the same footing as pipeline B, which reports its failures for free via negative
+sentinels.
+
+**Verified:** the tagged table is unchanged, and the `pass` rows of the all-reads table match
+it exactly (checked by `scripts/reproduce-reference.sh`).
+
+---
+
+## Effect of the memory patches
+
+P2 and P3 together took the R analysis step from **20 s to 7.6 s** on the reference dataset,
+and the BAM from **566 MB to 98 MB**, with every output byte-identical.

@@ -40,9 +40,6 @@ check() {  # check <label> <reference_file> <our_file>
 mkdir -p "$WORK/a" "$WORK/b"
 
 # ---------------------------------------------------------------- pipeline A
-# NOTE: run_analysis.R is still the unpatched upstream script, so it takes positional
-# arguments and writes reads.table_<exp>.prim.Samp.<bc>_alnScTh.20.txt. Patching it is phase 1;
-# the baseline has to reproduce before it is changed.
 in_a() {
     podman run --rm --platform linux/arm64 \
         -v "$WORK/a:/work:z" \
@@ -58,7 +55,9 @@ time in_a bash /opt/telomers/align.sh \
 echo
 echo "== pipeline A, step 2/2: R analysis =="
 time in_a Rscript /opt/telomers/run_analysis.R \
-    /work/aligned.sort.bam /work/r_analysis "$EXPNAME" 500000 NB65uq 2>&1 | tail -6
+    --bam /work/aligned.sort.bam --outdir /work/r_analysis --exp-name "$EXPNAME" \
+    --chr-arm-ln 500000 --barcode-seq TTCTCAGTCTTCCTCCAGACAAGG --barcode-name NB65uq \
+    --emit-all 2>&1 | tail -8
 
 # ---------------------------------------------------------------- pipeline B
 # No --shm-size needed since the v2 driver dropped pandarallel: it streamed DataFrame chunks
@@ -91,13 +90,33 @@ if [[ -f "$REFBAM" ]]; then
     if [[ -n "$OURS" && "$OURS" == "$THEIRS" ]]; then echo "identical  ($OURS)"
     else echo "DIFFERS"; echo "      ours=$OURS theirs=$THEIRS"; FAILURES=$((FAILURES+1)); fi
 fi
+# Our filenames are now stable (reads.table.txt rather than
+# reads.table_<exp>.prim.Samp.<bc>_alnScTh.20.txt) so Snakemake can declare them without
+# globbing; the reference names are on the left of each comparison.
 check "reads.table (per read)" \
       "$RES/r_analysis/reads.table_${EXPNAME}.prim.Samp.NB65uq_alnScTh.20.txt" \
-      "$WORK/a/r_analysis/reads.table_${EXPNAME}.prim.Samp.NB65uq_alnScTh.20.txt"
+      "$WORK/a/r_analysis/reads.table.txt"
 check "summary.overall" "$RES/r_analysis/summary.overall_${EXPNAME}.csv" \
-      "$WORK/a/r_analysis/summary.overall_${EXPNAME}.csv"
+      "$WORK/a/r_analysis/summary.overall.csv"
 check "summary.by_chr"  "$RES/r_analysis/summary.by_chr_${EXPNAME}.csv" \
-      "$WORK/a/r_analysis/summary.by_chr_${EXPNAME}.csv"
+      "$WORK/a/r_analysis/summary.by_chr.csv"
+
+# reads.table.all.txt has no counterpart upstream, so it is checked for shape, not equality:
+# it must contain every primary read and its pass rows must match the tagged table exactly.
+printf '  %-46s ' "reads.table.all (new; internally consistent)"
+ALL="$WORK/a/r_analysis/reads.table.all.txt"
+if [[ -f "$ALL" ]]; then
+    n_all=$(( $(wc -l < "$ALL") - 1 ))
+    n_pass=$(awk -F"\t" 'NR>1 && $NF=="" && $(NF-1)=="pass"' "$ALL" | wc -l)
+    n_tagged=$(( $(wc -l < "$WORK/a/r_analysis/reads.table.txt") - 1 ))
+    if [[ "$n_pass" -eq "$n_tagged" ]]; then
+        echo "ok ($n_all primary reads, $n_pass pass = tagged table)"
+    else
+        echo "MISMATCH ($n_all rows, $n_pass pass vs $n_tagged tagged)"; FAILURES=$((FAILURES+1))
+    fi
+else
+    echo "FAIL (not produced)"; FAILURES=$((FAILURES+1))
+fi
 
 echo "pipeline B:"
 for f in "${SAMPLE}.telonp.all.csv" "${SAMPLE}.telonp.csv" "${SAMPLE}.telonp.summary.txt"; do

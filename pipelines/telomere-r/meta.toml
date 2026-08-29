@@ -1,0 +1,16 @@
+# Display metadata only. Parameters live in src/telomers/params.py, and the run form is
+# rendered from that Pydantic model's JSON schema.
+[pipeline]
+id      = "telomere-r"
+version = "1.0.0"
+title   = "Mapping-based (Karimian 2024, Method 1)"
+summary = """Maps reads to a pre-cut reference with minimap2 and measures the telomere as the \
+soft-clipped bases extending past the subtelomere boundary. Requires a reference genome whose \
+telomeres have been removed and whose chromosome ends are all the same length. Reports results \
+per chromosome arm."""
+citation = "Karimian et al., Science 2024. doi:10.1126/science.ado0431"
+upstream = "https://github.com/GreiderLab/Telomere-Read-Analysis"
+
+image              = "telomers/pipeline-a:0.1.0"
+requires_reference = true
+provides           = ["per_read", "bulk", "per_arm", "pipeline_plots"]
