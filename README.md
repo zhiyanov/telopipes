@@ -13,8 +13,37 @@ so nothing bioinformatics-related is installed on the host.
 
 ## Status
 
-Early. Phase 0 (environment proof) is complete — see [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md).
-The design is in [`docs/PLAN.md`](docs/PLAN.md).
+Phases 0 and 1 are complete: both pipelines run from the command line and reproduce the
+published reference results byte-for-byte. There is no web interface yet.
+
+- [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) — what the host can and cannot do, with evidence
+- [`docs/PATCHES.md`](docs/PATCHES.md) — every deviation from the upstream scripts, and how it was verified
+- [`docs/PLAN.md`](docs/PLAN.md) — the design and the remaining phases
+
+## Usage
+
+```bash
+uv sync
+telomers doctor                 # check podman, images, disk
+telomers images build           # first build compiles Bioconductor from source; ~5 min
+telomers pipelines              # what is available
+
+telomers run telonp \
+    --reads sample.fastq.gz --sample-label mysample
+
+telomers run telomere-r \
+    --reads sample.fastq.gz --reference cut.MATERNAL.fasta \
+    --sample-label mysample --barcode-name NB65uq
+```
+
+Each run gets a self-describing directory under `data/runs/<id>/` holding `run.json` (what
+produced it), `run.log` and `work/` (everything the pipeline wrote). Re-running with the same
+`--run-id` resumes: Snakemake skips completed steps, so an interrupted pipeline-A run picks up
+at the analysis without repeating the alignment.
+
+`scripts/reproduce-reference.sh` re-runs both pipelines on the published HG002 dataset and
+diffs every output against `reference/results/`. It is the regression test for any change to
+the pipeline scripts.
 
 ## Architecture note
 

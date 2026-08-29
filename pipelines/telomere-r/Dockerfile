@@ -58,4 +58,6 @@ RUN uv venv --python 3.12 /opt/venv \
 ENV PATH=/opt/venv/bin:$PATH
 
 COPY scripts/ /opt/telomers/
+# Snakemake runs inside this image, so its workflow ships in it too.
+COPY Snakefile /opt/telomers/Snakefile
 WORKDIR /work

@@ -9,5 +9,7 @@ COPY requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
 COPY scripts/ /opt/telomers/
+# Snakemake runs inside this image, so its workflow ships in it too.
+COPY Snakefile /opt/telomers/Snakefile
 ENV MPLBACKEND=Agg
 WORKDIR /work
