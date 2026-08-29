@@ -61,11 +61,12 @@ time in_a Rscript /opt/telomers/run_analysis.R \
     /work/aligned.sort.bam /work/r_analysis "$EXPNAME" 500000 NB65uq 2>&1 | tail -6
 
 # ---------------------------------------------------------------- pipeline B
-# --shm-size is required: pandarallel moves DataFrame chunks through /dev/shm, which podman
-# caps at 64 MB, and the default fails with ENOSPC on a machine with plenty of free disk.
+# No --shm-size needed since the v2 driver dropped pandarallel: it streamed DataFrame chunks
+# through /dev/shm, which podman caps at 64 MB, so the reference driver failed here with ENOSPC
+# on a machine with 83 GB free. See docs/PATCHES.md P4.
 echo
 echo "== pipeline B: TeloNP =="
-time podman run --rm --platform linux/arm64 --shm-size=2g \
+time podman run --rm --platform linux/arm64 \
     -v "$WORK/b:/work:z" \
     -v "$READS:/inputs/reads.fastq:ro,z" \
     -w /work "$IMAGE_B" \
