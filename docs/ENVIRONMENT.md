@@ -94,6 +94,44 @@ aarch64
 Both are detected by reproducing the reference figures: pipeline A `n=4362, median=4589.5`,
 pipeline B `n=5049, median=4378.0`.
 
+## Finding 4 — the port reproduces the reference exactly
+
+Pipeline A was run end to end on `HG002.1.NB65uq` against the maternal cut reference, using the
+**unpatched** vendored scripts, and compared to `reference/results/` (`scripts/reproduce-reference.sh`).
+
+**Alignment — byte-identical.** The BAM differs from the reference's by 17 bytes, which is
+entirely the `@PG` header recording a different tool version string. The alignment records
+themselves hash the same:
+
+```
+samtools view aligned.sort.bam | md5sum
+ours       f71973533c110b54d22732f71fcc464c
+reference  f71973533c110b54d22732f71fcc464c
+```
+
+**R analysis — byte-identical.** `summary.overall`, `summary.by_chr` and the 4,362-row per-read
+table all diff clean:
+
+```
+tagged_reads 4362 | mean 4827.2 | median 4589.5 | sd 1785.9 | min 234 | max 27258
+```
+
+This holds *despite* amd64 → arm64, `bioconductor_docker` → `rocker/r-ver`, R 4.3 → 4.4,
+Bioconductor 3.18 → 3.19, and `pairwiseAlignment()` relocating to a different package. Both
+risks listed above are therefore closed — including the floating-point barcode-scoring concern,
+since the per-read table carries the fractional `alnSc` values and matches byte for byte.
+
+### One genuine incompatibility found along the way
+
+**Bioconductor 3.19 split `pairwiseAlignment()` out of Biostrings into a new `pwalign`
+package.** Nothing in the upstream script asks for it — on Bioc 3.18 it lived in Biostrings —
+so `alignWriteTableFn()` fails at the TeloTag scoring step with a `.load_package_gracefully`
+error. The Dockerfile installs `pwalign` explicitly. Results are unaffected, as the identical
+per-read table shows.
+
+`writexl` is also installed, purely so the unpatched script's `library(writexl)` call succeeds.
+It is never actually used; phase 1 removes both the call and the package.
+
 ## Finding 3 — the vendored TeloBP matches upstream exactly
 
 The reference project vendors GreiderLab TeloBP as a local editable install. Installing it from

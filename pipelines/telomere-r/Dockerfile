@@ -34,11 +34,24 @@ RUN echo 'options(repos = c(CRAN = "https://cloud.r-project.org"))' \
 
 # Bioconductor 3.19 pairs with R 4.4. Biostrings / GenomicAlignments / S4Vectors are the
 # three the pipeline actually uses; optparse is for our patched run_analysis.R CLI.
-# writexl is deliberately NOT installed: telobp_functions.R loads it but never calls it.
 RUN R -q -e "install.packages(c('BiocManager','RColorBrewer','optparse'))" \
  && R -q -e "BiocManager::install(version='3.19', ask=FALSE, update=FALSE)" \
  && R -q -e "BiocManager::install(c('Biostrings','GenomicAlignments','S4Vectors'), update=FALSE, ask=FALSE)" \
  && R -q -e "stopifnot(all(c('Biostrings','GenomicAlignments','S4Vectors','RColorBrewer','optparse') %in% rownames(installed.packages())))"
+
+# Bioconductor 3.19 split pairwiseAlignment() out of Biostrings into its own package. The
+# reference ran on Bioc 3.18, where it still lived in Biostrings, so nothing in the upstream
+# script asks for pwalign -- but alignWriteTableFn() dies without it when scoring the TeloTag
+# barcode. Same code, new home; whether it also behaves identically is what the reproduction
+# in scripts/reproduce-reference.sh checks.
+RUN R -q -e "BiocManager::install('pwalign', update=FALSE, ask=FALSE); stopifnot('pwalign' %in% rownames(installed.packages()))"
+
+# writexl is loaded at the top of telobp_functions.R but never actually called. It is
+# installed here purely so the UNPATCHED upstream script runs as-is, which is what the
+# phase 0 baseline reproduction needs. Phase 1 removes the library(writexl) call and this
+# layer together. Deliberately its own layer so it does not invalidate the expensive
+# Bioconductor build above.
+RUN R -q -e "install.packages('writexl'); stopifnot('writexl' %in% rownames(installed.packages()))"
 
 # Snakemake orchestrates this pipeline's rules from inside the container, so the host never
 # needs it. rocker ships no Python, and the base's Ubuntu release would dictate which version
