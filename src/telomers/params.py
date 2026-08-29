@@ -77,7 +77,12 @@ class TelomereRParams(BaseModel):
     #: with the reference's per-record length silently corrupts q-arm lengths while leaving p
     #: arms perfect. The application derives it from the registered reference and shows it
     #: read-only. See docs/PLAN.md section 4.
-    chr_arm_ln: int = Field(500_000, ge=1000)
+    chr_arm_ln: int = Field(
+        500_000, ge=1000,
+        description="Per-record length of the cut reference. Read from the reference you "
+                    "select, because a value that disagrees with it corrupts q-arm telomere "
+                    "lengths while leaving p arms correct.",
+    )
 
     read_len_min: int = Field(3000, ge=0, description="Drop reads shorter than this")
     aln_score_threshold: float = Field(

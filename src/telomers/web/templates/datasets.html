@@ -22,4 +22,18 @@
 {% else %}
 {{ empty("No datasets registered. Add one with: telomers datasets add sample.fastq") }}
 {% endif %}
+
+<h2>Register a dataset</h2>
+<form method="post" enctype="multipart/form-data" class="stack inline-form">
+  <label>Path on this machine
+    <input type="text" name="path" placeholder="/data/nanopore/sample.fastq">
+    <small>Hardlinked where possible, so nothing is copied. Restricted to the directories in TELOMERS_IMPORT_DIRS.</small>
+  </label>
+  <label>…or upload a file
+    <input type="file" name="upload">
+    <small>FASTQ, optionally gzipped</small>
+  </label>
+  <label>Name <input type="text" name="name" placeholder="defaults to the filename"></label>
+  <p><button type="submit" class="primary">Register</button></p>
+</form>
 {% endblock %}

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}telomers{% endblock %}</title>
 <link rel="stylesheet" href="/static/app.css">
+<script src="/static/htmx.min.js" defer></script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='14'>🧬</text></svg>">
 </head>
 <body>
@@ -16,8 +17,14 @@
     <a href="/references" {% if section == 'references' %}class="on"{% endif %}>References</a>
     <a href="/pipelines" {% if section == 'pipelines' %}class="on"{% endif %}>Pipelines</a>
   </nav>
+  <nav class="right">
+    <a class="button" href="/runs/new">New run</a>
+  </nav>
 </header>
 <main>
+{% if request.query_params.get('msg') %}
+  <p class="flash {{ 'bad' if request.query_params.get('kind') == 'bad' else 'ok' }}">{{ request.query_params.get('msg') }}</p>
+{% endif %}
 {% block content %}{% endblock %}
 </main>
 <footer>

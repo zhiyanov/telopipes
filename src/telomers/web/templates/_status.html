@@ -1,0 +1,40 @@
+{# Polled by HTMX while a run is live. The hx-* attributes are emitted only while the run can
+   still change, so polling stops by itself at a terminal state. #}
+<div id="status"
+     {% if live %}hx-get="/runs/{{ run_id }}/status" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+
+  <p class="sub">
+    {% if run %}<span class="pill {{ run.status }}">{{ run.status }}</span>{% endif %}
+    {% if run and run.status == 'queued' %}
+      <span class="quiet">waiting for the current run to finish — one at a time</span>
+    {% elif is_current %}
+      <span class="quiet">running now</span>
+    {% endif %}
+    {% if summary %}· <a href="/runs/{{ run_id }}/results">canonical results</a>{% endif %}
+  </p>
+
+  <form method="post" class="actions">
+    {% if run and run.status in ('queued', 'running') %}
+      <button formaction="/runs/{{ run_id }}/cancel" class="danger">Cancel</button>
+    {% endif %}
+    {% if run and run.status in ('interrupted', 'failed', 'cancelled') %}
+      <button formaction="/runs/{{ run_id }}/resume">Resume</button>
+      <span class="quiet">completed steps are skipped</span>
+    {% endif %}
+    {% if run and run.status not in ('queued', 'running') %}
+      <button formaction="/runs/{{ run_id }}/delete" class="danger"
+              onclick="return confirm('Delete this run and everything it produced?')">Delete</button>
+    {% endif %}
+  </form>
+
+  {% if summary %}
+  <div class="stats">
+    <div class="stat"><span class="label">Median telomere</span><span class="value">{{ summary.telomere_bp.median | round | int | count }}<small>bp</small></span></div>
+    <div class="stat"><span class="label">Reads passed</span><span class="value">{{ summary.reads.passed | count }}<small>of {{ summary.reads.total | count }}</small></span></div>
+  </div>
+  {% endif %}
+
+  <h2>Log <a class="quiet" href="/runs/{{ run_id }}/log">full</a></h2>
+  {% if log %}<pre class="log" id="log">{{ log }}</pre>
+  {% else %}<p class="empty">Nothing logged yet.</p>{% endif %}
+</div>

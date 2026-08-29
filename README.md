@@ -13,10 +13,9 @@ so nothing bioinformatics-related is installed on the host.
 
 ## Status
 
-Phases 0–3 are complete: both pipelines run from the command line, reproduce the published
-reference results byte-for-byte, are normalised into a common schema with figures, and can be
-browsed in a web interface. Submitting runs from the browser comes next; for now runs are
-started with the CLI.
+Phases 0–4 are complete. Both pipelines reproduce the published reference results
+byte-for-byte, and the whole story — register inputs, start a run, watch it, read the results —
+works in a browser as well as from the command line.
 
 - [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) — what the host can and cannot do, with evidence
 - [`docs/PATCHES.md`](docs/PATCHES.md) — every deviation from the upstream scripts, and how it was verified
@@ -83,9 +82,13 @@ at all, they just sort wrongly throughout.
 telomers serve            # http://127.0.0.1:8000
 ```
 
-Read-only so far: it browses runs, datasets, references and pipelines, shows each run's
-provenance, parameters and log, and presents the canonical figures alongside the ones the
-published tools produce themselves. `/healthz` reports the same checks as `telomers doctor`.
+Register a dataset and a reference, pick a pipeline, and start a run. The parameter form is
+generated from the same Pydantic models the CLI validates against, so the two cannot disagree.
+Status and log update themselves while a run is live and stop polling once it finishes; runs
+can be cancelled, resumed and deleted. `/healthz` reports the same checks as `telomers doctor`.
+
+Runs execute one at a time. Pipeline A's analysis step budgets 10 of this machine's 15 GB, and
+a lab of a few people does not need concurrency badly enough to pay for it.
 
 `scripts/reproduce-reference.sh` re-runs both pipelines on the published HG002 dataset and
 diffs every output against `reference/results/`. It is the regression test for any change to

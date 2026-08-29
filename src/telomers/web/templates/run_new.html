@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% set section = 'runs' %}
+{% block title %}New run · telomers{% endblock %}
+{% block content %}
+<h1>New run</h1>
+
+<div class="cards">
+{% for p in pipelines %}
+  <a class="card choice {{ 'on' if chosen and chosen.id == p.id }}" href="/runs/new?pipeline={{ p.id }}">
+    <h3>{{ p.title }}</h3>
+    <p>{{ p.summary }}</p>
+    <dl>
+      <dt>Reference</dt><dd>{{ "required" if p.requires_reference else "not needed" }}</dd>
+      <dt>Per chromosome</dt><dd>{{ "yes" if p.has("per_arm") else "no" }}</dd>
+    </dl>
+  </a>
+{% endfor %}
+</div>
+
+{% if chosen %}
+<form method="post" action="/runs" class="stack">
+  <input type="hidden" name="pipeline" value="{{ chosen.id }}">
+
+  <h2>Input</h2>
+  <label>Dataset
+    <select name="dataset_id" required>
+      <option value="">— choose reads —</option>
+      {% for d in datasets %}
+        <option value="{{ d.id }}">{{ d.name }}{% if d.n_reads %} ({{ d.n_reads | count }} reads){% endif %}</option>
+      {% endfor %}
+    </select>
+  </label>
+  {% if not datasets %}<p class="empty">No datasets yet — <a href="/datasets">register one</a>.</p>{% endif %}
+
+  {% if chosen.requires_reference %}
+  <label>Reference genome
+    <select name="reference_id" required>
+      <option value="">— choose a cut reference —</option>
+      {% for r in references %}
+        <option value="{{ r.id }}">{{ r.name }} ({{ r.n_records }} records, arm {{ r.arm_length_bp | count }} bp)</option>
+      {% endfor %}
+    </select>
+    <small>The arm length is read from the file you pick, not entered — a mismatch would corrupt q-arm lengths.</small>
+  </label>
+  {% if not references %}<p class="empty">No references yet — <a href="/references">register one</a>.</p>{% endif %}
+  {% endif %}
+
+  <h2>Parameters</h2>
+  {% for f in fields if not f.advanced %}
+    {% include "_field.html" %}
+  {% endfor %}
+
+  <details>
+    <summary>Advanced — thresholds from the paper</summary>
+    <p class="note">These reproduce Karimian et al. as published. Change them only deliberately.</p>
+    {% for f in fields if f.advanced %}
+      {% include "_field.html" %}
+    {% endfor %}
+  </details>
+
+  <p><button type="submit" class="primary">Start run</button></p>
+</form>
+{% endif %}
+{% endblock %}

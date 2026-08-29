@@ -4,19 +4,10 @@
 {% block title %}{{ run_id }} · telomers{% endblock %}
 {% block content %}
 <h1>{{ run_id }}</h1>
-<p class="sub">
-  {{ meta.get('pipeline', run.pipeline if run else '?') }}
-  {% if run %}{{ status_pill(run.status) }}{% endif %}
-  {% if summary %}· <a href="/runs/{{ run_id }}/results">canonical results</a>{% endif %}
-</p>
+<p class="sub">{{ meta.get('pipeline', run.pipeline if run else '?') }}</p>
 
-{% if summary %}
-<div class="stats">
-  <div class="stat"><span class="label">Median telomere</span><span class="value">{{ summary.telomere_bp.median | round | int | count }}<small>bp</small></span></div>
-  <div class="stat"><span class="label">Reads passed</span><span class="value">{{ summary.reads.passed | count }}<small>of {{ summary.reads.total | count }}</small></span></div>
-  <div class="stat"><span class="label">Figures</span><span class="value">{{ n_figures }}</span></div>
-</div>
-{% endif %}
+{# Status, actions and log live in a fragment that polls itself while the run is live. #}
+<div hx-get="/runs/{{ run_id }}/status" hx-trigger="load" hx-swap="outerHTML"></div>
 
 <h2>Provenance</h2>
 <table class="kv">
@@ -37,6 +28,4 @@
   {% endfor %}
 </table>
 
-<h2>Log <a class="quiet" href="/runs/{{ run_id }}/log">full</a></h2>
-{% if log %}<pre class="log">{{ log }}</pre>{% else %}{{ empty("No log recorded.") }}{% endif %}
 {% endblock %}

@@ -72,3 +72,68 @@ def test_healthz_reports_check_status(client):
     payload = client.get("/healthz").json()
     assert "ok" in payload and payload["checks"]
     assert {"name", "status", "detail"} <= set(payload["checks"][0])
+
+
+# --------------------------------------------------------------------------- write path
+
+def test_run_form_renders_fields_from_the_model(client):
+    body = client.get("/runs/new?pipeline=telomere-r").text
+    assert 'name="barcode_name"' in body and 'name="sample_label"' in body
+    # chr_arm_ln comes from the reference, so it must not be an editable input.
+    assert 'name="chr_arm_ln"' not in body
+    assert "from the selected reference" in body
+
+
+def test_reference_free_pipeline_form_has_no_reference_selector(client):
+    assert 'name="reference_id"' not in client.get("/runs/new?pipeline=telonp").text
+
+
+def test_runs_new_is_not_mistaken_for_a_run_id(client):
+    """/runs/{run_id} is also registered; order matters."""
+    assert client.get("/runs/new").status_code == 200
+
+
+def test_path_registration_is_disabled_until_an_allowlist_is_set(client):
+    """Registering by path reads an arbitrary local file, so it defaults to off rather than
+    to permissive."""
+    response = client.post("/datasets", data={"path": "/etc/passwd"}, follow_redirects=False)
+    assert response.status_code == 303
+    assert "disabled" in response.headers["location"]
+
+
+def test_registering_a_path_outside_the_allowlist_is_refused(client, tmp_path, monkeypatch):
+    from telomers.config import settings
+    monkeypatch.setattr(settings, "import_dirs", [tmp_path / "allowed"])
+    response = client.post("/datasets", data={"path": "/etc/passwd"}, follow_redirects=False)
+    assert "not+under+any+allowed" in response.headers["location"]
+
+
+def test_submitting_without_a_dataset_is_refused(client):
+    response = client.post("/runs", data={"pipeline": "telonp"}, follow_redirects=False)
+    assert "choose+a+dataset" in response.headers["location"]
+
+
+def test_mapping_pipeline_refuses_to_start_without_a_reference(client, tmp_path):
+    from telomers import db
+    reads = tmp_path / "reads.fastq"
+    reads.write_text("@r\nACGT\n+\nIIII\n")
+    with db.session() as session:
+        session.add(db.Dataset(id="d1", name="d", path=str(reads), sha256="x", size_bytes=1))
+        session.commit()
+    response = client.post("/runs", data={"pipeline": "telomere-r", "dataset_id": "d1"},
+                           follow_redirects=False)
+    assert "needs+a+reference" in response.headers["location"]
+
+
+def test_status_fragment_polls_only_while_live(client):
+    from telomers import db
+    # The demo run is finished, so the fragment must not carry hx-trigger -- that is how
+    # polling stops without any client-side logic.
+    assert "hx-trigger" not in client.get("/runs/demo/status").text
+
+    with db.session() as session:
+        run = session.get(db.Run, "demo")
+        run.status = "running"
+        session.add(run)
+        session.commit()
+    assert "hx-trigger" in client.get("/runs/demo/status").text
