@@ -13,9 +13,10 @@ so nothing bioinformatics-related is installed on the host.
 
 ## Status
 
-Phases 0–2 are complete: both pipelines run from the command line, reproduce the published
-reference results byte-for-byte, and are normalised into a common schema with figures. There
-is no web interface yet.
+Phases 0–3 are complete: both pipelines run from the command line, reproduce the published
+reference results byte-for-byte, are normalised into a common schema with figures, and can be
+browsed in a web interface. Submitting runs from the browser comes next; for now runs are
+started with the CLI.
 
 - [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) — what the host can and cannot do, with evidence
 - [`docs/PATCHES.md`](docs/PATCHES.md) — every deviation from the upstream scripts, and how it was verified
@@ -75,6 +76,16 @@ yours is usable and exactly what is wrong if not. This matters more than it look
 whose records are not all the same length silently corrupts q-arm telomere lengths while
 leaving p arms perfect, and unpadded contig names (`chr1p` rather than `chr01p`) do not error
 at all, they just sort wrongly throughout.
+
+### Web interface
+
+```bash
+telomers serve            # http://127.0.0.1:8000
+```
+
+Read-only so far: it browses runs, datasets, references and pipelines, shows each run's
+provenance, parameters and log, and presents the canonical figures alongside the ones the
+published tools produce themselves. `/healthz` reports the same checks as `telomers doctor`.
 
 `scripts/reproduce-reference.sh` re-runs both pipelines on the published HG002 dataset and
 diffs every output against `reference/results/`. It is the regression test for any change to

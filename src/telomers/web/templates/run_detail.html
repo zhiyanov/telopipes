@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_pill, empty %}
+{% set section = 'runs' %}
+{% block title %}{{ run_id }} · telomers{% endblock %}
+{% block content %}
+<h1>{{ run_id }}</h1>
+<p class="sub">
+  {{ meta.get('pipeline', run.pipeline if run else '?') }}
+  {% if run %}{{ status_pill(run.status) }}{% endif %}
+  {% if summary %}· <a href="/runs/{{ run_id }}/results">canonical results</a>{% endif %}
+</p>
+
+{% if summary %}
+<div class="stats">
+  <div class="stat"><span class="label">Median telomere</span><span class="value">{{ summary.telomere_bp.median | round | int | count }}<small>bp</small></span></div>
+  <div class="stat"><span class="label">Reads passed</span><span class="value">{{ summary.reads.passed | count }}<small>of {{ summary.reads.total | count }}</small></span></div>
+  <div class="stat"><span class="label">Figures</span><span class="value">{{ n_figures }}</span></div>
+</div>
+{% endif %}
+
+<h2>Provenance</h2>
+<table class="kv">
+  <tr><th>Image</th><td><code>{{ meta.get('image', '—') }}</code></td></tr>
+  <tr><th>Created</th><td>{{ meta.get('created', '—') }}</td></tr>
+  <tr><th>Reads</th><td><code>{{ meta.get('inputs', {}).get('reads', '—') }}</code></td></tr>
+  {% if meta.get('inputs', {}).get('reference') %}
+  <tr><th>Reference</th><td><code>{{ meta.inputs.reference }}</code></td></tr>
+  {% endif %}
+</table>
+
+<h2>Parameters</h2>
+<table class="kv">
+  {# reads/reference are container paths written into config.yaml for Snakemake; they are
+     already shown above as host paths, so showing them again here is just noise. #}
+  {% for key, value in (meta.get('params') or {}) | dictsort if key not in ('reads', 'reference') %}
+  <tr><th>{{ key }}</th><td><code>{{ value }}</code></td></tr>
+  {% endfor %}
+</table>
+
+<h2>Log <a class="quiet" href="/runs/{{ run_id }}/log">full</a></h2>
+{% if log %}<pre class="log">{{ log }}</pre>{% else %}{{ empty("No log recorded.") }}{% endif %}
+{% endblock %}

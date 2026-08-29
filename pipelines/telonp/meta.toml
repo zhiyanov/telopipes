@@ -4,7 +4,7 @@ id      = "telonp"
 version = "1.0.0"
 title   = "TeloNP (Karimian 2024, Method 2)"
 summary = """Detects the telomere boundary from each read's own sequence, using nucleotide \
-composition in a sliding window. Needs no reference genome, so it works on any sample -- but \
+composition in a sliding window. Needs no reference genome, so it works on any sample — but \
 for the same reason it cannot assign reads to chromosomes and reports a bulk distribution only."""
 citation = "Karimian et al., Science 2024. doi:10.1126/science.ado0431"
 upstream = "https://github.com/GreiderLab/TeloBP"

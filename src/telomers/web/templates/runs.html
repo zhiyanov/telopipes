@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_pill, empty %}
+{% set section = 'runs' %}
+{% block title %}Runs · telomers{% endblock %}
+{% block content %}
+<h1>Runs</h1>
+{% if runs %}
+<table>
+  <thead><tr><th>Run</th><th>Pipeline</th><th>Status</th><th class="num">Median</th><th class="num">Passed</th><th></th></tr></thead>
+  <tbody>
+  {% for run in runs %}
+    {% set s = run.summary %}
+    <tr>
+      <td><a href="/runs/{{ run.id }}">{{ run.id }}</a></td>
+      <td>{{ run.pipeline }}</td>
+      <td>{{ status_pill(run.status) }}</td>
+      <td class="num">{% if s and s.telomere_bp.median %}{{ s.telomere_bp.median | round | int | count }} bp{% else %}—{% endif %}</td>
+      <td class="num">{% if s %}{{ s.reads.passed | count }} / {{ s.reads.total | count }}{% else %}—{% endif %}</td>
+      <td class="num">{% if s %}<a href="/runs/{{ run.id }}/results">results</a>{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+{{ empty("No runs recorded. If runs exist on disk, rebuild the index with: telomers reindex") }}
+{% endif %}
+{% endblock %}

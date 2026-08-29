@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% from "_macros.html" import empty %}
+{% set section = 'runs' %}
+{% block title %}Results · {{ run_id }}{% endblock %}
+{% block content %}
+<h1>Results</h1>
+<p class="sub"><a href="/runs/{{ run_id }}">{{ run_id }}</a> · {{ summary.pipeline }}
+{% if summary.get('sample_label') %}· {{ summary.sample_label }}{% endif %}</p>
+
+<div class="stats">
+  <div class="stat"><span class="label">Median</span><span class="value">{{ summary.telomere_bp.median | round | int | count }}<small>bp</small></span></div>
+  <div class="stat"><span class="label">Mean</span><span class="value">{{ summary.telomere_bp.mean | round | int | count }}<small>bp</small></span></div>
+  <div class="stat"><span class="label">SD</span><span class="value">{{ summary.telomere_bp.sd | round | int | count }}<small>bp</small></span></div>
+  <div class="stat"><span class="label">Reads</span><span class="value">{{ summary.reads.passed | count }}<small>of {{ summary.reads.total | count }}</small></span></div>
+</div>
+
+<p class="note">
+  Lengths are measured from the read terminus and <strong>include the ligated TeloTag</strong>,
+  as both methods report them. No adapter correction is applied, so the two pipelines are
+  directly comparable.
+</p>
+
+{% for name in figures %}
+  <figure><img src="/runs/{{ run_id }}/results/{{ name }}" alt="{{ name }}"></figure>
+{% endfor %}
+
+<h2>Read accounting</h2>
+<table class="kv">
+  <tr><th>Passed</th><td>{{ summary.reads.passed | count }} ({{ '%.1f' % (summary.reads.pass_rate * 100) }}%)</td></tr>
+  {% for reason, n in summary.qc_breakdown.items() %}
+  <tr><th>{{ reason.replace('_', ' ') }}</th><td>{{ n | count }}</td></tr>
+  {% endfor %}
+</table>
+
+<h2>By chromosome arm</h2>
+{% if arm_rows %}
+<div class="scroll">
+<table>
+  <thead><tr>{% for h in arm_header %}<th{% if not loop.first %} class="num"{% endif %}>{{ h.replace('_', ' ') }}</th>{% endfor %}</tr></thead>
+  <tbody>
+  {% for row in arm_rows %}
+    <tr>{% for cell in row %}<td{% if not loop.first %} class="num"{% endif %}>{{ cell }}</td>{% endfor %}</tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p class="note">
+  This pipeline detects the telomere boundary from each read's own sequence and never maps to
+  a reference, so it cannot assign reads to chromosomes. Run the mapping-based pipeline on the
+  same dataset for a per-arm breakdown.
+</p>
+{% endif %}
+
+<h2>Downloads</h2>
+<ul class="files">
+{% for name, size in downloads %}
+  <li><a href="/runs/{{ run_id }}/results/{{ name }}">{{ name }}</a> <span class="quiet">{{ size | bytes }}</span></li>
+{% endfor %}
+</ul>
+
+{% if pipeline_figures %}
+<h2>Figures from the pipeline itself <span class="quiet">({{ pipeline_figures | length }})</span></h2>
+<p class="note">Produced by the published tool in its own style, kept as-is for citation.</p>
+<div class="gallery">
+{% for path in pipeline_figures %}
+  <a href="/runs/{{ run_id }}/work/{{ path }}" title="{{ path }}">
+    <img src="/runs/{{ run_id }}/work/{{ path }}" alt="{{ path }}" loading="lazy">
+  </a>
+{% endfor %}
+</div>
+{% endif %}
+{% endblock %}

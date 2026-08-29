@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% set section = 'pipelines' %}
+{% block title %}Pipelines · telomers{% endblock %}
+{% block content %}
+<h1>Pipelines</h1>
+<div class="cards wide">
+{% for p in pipelines %}
+  <article class="card">
+    <h3>{{ p.title }} <span class="quiet">v{{ p.version }}</span></h3>
+    <p>{{ p.summary }}</p>
+    <dl>
+      <dt>Reference genome</dt><dd>{{ "required (cut)" if p.requires_reference else "not needed" }}</dd>
+      <dt>Per chromosome</dt><dd>{{ "yes" if p.has("per_arm") else "no — reference-free" }}</dd>
+      <dt>Image</dt><dd><code>{{ p.image }}</code></dd>
+      <dt>Citation</dt><dd>{{ p.citation }}</dd>
+      <dt>Upstream</dt><dd><a href="{{ p.upstream }}">{{ p.upstream }}</a></dd>
+    </dl>
+  </article>
+{% endfor %}
+</div>
+{% endblock %}

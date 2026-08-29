@@ -267,6 +267,13 @@ def cmd_runs(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_serve(args: argparse.Namespace) -> int:
+    import uvicorn
+    print(f"telomers at http://{args.host}:{args.port}")
+    uvicorn.run("telomers.web.app:app", host=args.host, port=args.port, reload=args.reload)
+    return 0
+
+
 def cmd_reindex(args: argparse.Namespace) -> int:
     counts = db.reindex()
     print("rebuilt index from disk: "
@@ -319,6 +326,12 @@ def main(argv: list[str] | None = None) -> int:
     p_res.add_argument("run_id")
     p_res.add_argument("--by-arm", action="store_true", help="also list per-arm statistics")
     p_res.set_defaults(func=cmd_results)
+
+    p_serve = sub.add_parser("serve", help="start the web interface")
+    p_serve.add_argument("--host", default="127.0.0.1")
+    p_serve.add_argument("--port", type=int, default=8000)
+    p_serve.add_argument("--reload", action="store_true")
+    p_serve.set_defaults(func=cmd_serve)
 
     sub.add_parser("runs", help="list recorded runs").set_defaults(func=cmd_runs)
     sub.add_parser("reindex", help="rebuild the index from disk").set_defaults(func=cmd_reindex)

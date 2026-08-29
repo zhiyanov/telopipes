@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}telomers{% endblock %}</title>
+<link rel="stylesheet" href="/static/app.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='14'>🧬</text></svg>">
+</head>
+<body>
+<header>
+  <a class="brand" href="/">telomers</a>
+  <nav>
+    <a href="/runs" {% if section == 'runs' %}class="on"{% endif %}>Runs</a>
+    <a href="/datasets" {% if section == 'datasets' %}class="on"{% endif %}>Datasets</a>
+    <a href="/references" {% if section == 'references' %}class="on"{% endif %}>References</a>
+    <a href="/pipelines" {% if section == 'pipelines' %}class="on"{% endif %}>Pipelines</a>
+  </nav>
+</header>
+<main>
+{% block content %}{% endblock %}
+</main>
+<footer>
+  Telomere length from nanopore reads · Karimian et al., <i>Science</i> 2024
+</footer>
+</body>
+</html>

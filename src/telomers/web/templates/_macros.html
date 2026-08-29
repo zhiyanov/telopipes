@@ -1,0 +1,11 @@
+{% macro status_pill(status) -%}
+<span class="pill {{ status }}">{{ status }}</span>
+{%- endmacro %}
+
+{% macro stat(label, value, unit='') -%}
+<div class="stat"><span class="label">{{ label }}</span><span class="value">{{ value }}{% if unit %}<small>{{ unit }}</small>{% endif %}</span></div>
+{%- endmacro %}
+
+{% macro empty(message) -%}
+<p class="empty">{{ message }}</p>
+{%- endmacro %}

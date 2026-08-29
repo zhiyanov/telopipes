@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_macros.html" import empty %}
+{% set section = 'references' %}
+{% block title %}References · telomers{% endblock %}
+{% block content %}
+<h1>Reference genomes</h1>
+<p class="note">
+  The mapping-based pipeline needs a <em>cut</em> reference: telomere repeats removed, every
+  chromosome end trimmed to the same length, contigs named <code>chr01p_MATERNAL</code>.
+  Anything registered here has been checked — the arm length is read from the file rather than
+  entered, because a mismatch would corrupt q-arm lengths while leaving p arms correct.
+</p>
+{% if references %}
+<table>
+  <thead><tr><th>Name</th><th class="num">Records</th><th class="num">Arm length</th><th>Haplotypes</th><th class="num">Size</th></tr></thead>
+  <tbody>
+  {% for r in references %}
+    <tr>
+      <td>{{ r.name }}<br><span class="quiet">{{ r.id }}</span></td>
+      <td class="num">{{ r.n_records }}</td>
+      <td class="num">{{ r.arm_length_bp | count }} bp</td>
+      <td>{{ r.haplotypes or '—' }}</td>
+      <td class="num">{{ r.size_bytes | bytes }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+{{ empty("No references registered. Check one first with: telomers references check cut.fasta") }}
+{% endif %}
+{% endblock %}

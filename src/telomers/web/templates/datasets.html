@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_macros.html" import empty %}
+{% set section = 'datasets' %}
+{% block title %}Datasets · telomers{% endblock %}
+{% block content %}
+<h1>Datasets</h1>
+{% if datasets %}
+<table>
+  <thead><tr><th>Name</th><th class="num">Reads</th><th class="num">Bases</th><th class="num">Size</th><th>Barcode</th></tr></thead>
+  <tbody>
+  {% for d in datasets %}
+    <tr>
+      <td>{{ d.name }}<br><span class="quiet">{{ d.id }}</span></td>
+      <td class="num">{{ d.n_reads | count }}</td>
+      <td class="num">{{ d.total_bases | count }}</td>
+      <td class="num">{{ d.size_bytes | bytes }}</td>
+      <td>{{ d.guessed_barcode or '—' }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+{{ empty("No datasets registered. Add one with: telomers datasets add sample.fastq") }}
+{% endif %}
+{% endblock %}

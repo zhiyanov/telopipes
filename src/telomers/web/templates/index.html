@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_pill, stat, empty %}
+{% block content %}
+<h1>Overview</h1>
+
+<div class="stats">
+  {{ stat("Runs", n_runs) }}
+  {{ stat("Datasets", n_datasets) }}
+  {{ stat("References", n_references) }}
+  {{ stat("Free space", free_bytes | bytes) }}
+</div>
+
+<h2>Recent runs</h2>
+{% if runs %}
+<table>
+  <thead><tr><th>Run</th><th>Pipeline</th><th>Status</th><th class="num">Median</th><th class="num">Reads</th></tr></thead>
+  <tbody>
+  {% for run in runs %}
+    {% set s = run.summary %}
+    <tr>
+      <td><a href="/runs/{{ run.id }}">{{ run.id }}</a></td>
+      <td>{{ run.pipeline }}</td>
+      <td>{{ status_pill(run.status) }}</td>
+      <td class="num">{% if s and s.telomere_bp.median %}{{ s.telomere_bp.median | round | int | count }} bp{% else %}—{% endif %}</td>
+      <td class="num">{% if s %}{{ s.reads.passed | count }} / {{ s.reads.total | count }}{% else %}—{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+{{ empty("No runs yet. Start one with: telomers run telonp --reads sample.fastq") }}
+{% endif %}
+
+<h2>Pipelines</h2>
+<div class="cards">
+{% for p in pipelines %}
+  <article class="card">
+    <h3>{{ p.title }}</h3>
+    <p>{{ p.summary }}</p>
+    <dl>
+      <dt>Reference</dt><dd>{{ "required" if p.requires_reference else "not needed" }}</dd>
+      <dt>Per chromosome</dt><dd>{{ "yes" if p.has("per_arm") else "no — reference-free" }}</dd>
+    </dl>
+  </article>
+{% endfor %}
+</div>
+{% endblock %}
