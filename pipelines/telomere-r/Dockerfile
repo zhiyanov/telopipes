@@ -46,13 +46,6 @@ RUN R -q -e "install.packages(c('BiocManager','RColorBrewer','optparse'))" \
 # in scripts/reproduce-reference.sh checks.
 RUN R -q -e "BiocManager::install('pwalign', update=FALSE, ask=FALSE); stopifnot('pwalign' %in% rownames(installed.packages()))"
 
-# writexl is loaded at the top of telobp_functions.R but never actually called. It is
-# installed here purely so the UNPATCHED upstream script runs as-is, which is what the
-# phase 0 baseline reproduction needs. Phase 1 removes the library(writexl) call and this
-# layer together. Deliberately its own layer so it does not invalidate the expensive
-# Bioconductor build above.
-RUN R -q -e "install.packages('writexl'); stopifnot('writexl' %in% rownames(installed.packages()))"
-
 # Snakemake orchestrates this pipeline's rules from inside the container, so the host never
 # needs it. rocker ships no Python, and the base's Ubuntu release would dictate which version
 # apt gives (r-ver:4.4.x is 22.04 -> Python 3.10, too old for Snakemake 9). Install a

@@ -3,6 +3,10 @@
 # against 2.2. See docs/PATCHES.md.
 # biopython 1.87 matches what produced reference/results/; 1.83 has no arm64 wheel and
 # python:3.12-slim ships no compiler.
+#
+# pandas and pandarallel are no longer used by run_telonp.py, but TeloBP's own setup.py lists
+# them, so they are installed transitively regardless. Pinning them here is what stops that
+# unpinned declaration from floating to whatever is newest.
 biopython==1.87
 numpy==2.0.2
 pandas==2.2.3

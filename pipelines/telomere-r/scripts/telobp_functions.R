@@ -13,7 +13,8 @@
 library(Biostrings)
 library(GenomicAlignments)
 library(S4Vectors)
-library(writexl)
+## PATCH: library(writexl) removed -- loaded upstream but write_xlsx() is never called
+## anywhere in this file; the table is written with write.table(). See docs/PATCHES.md.
 library(RColorBrewer)
 
 ## == ## 24 bp unique Nanopore barcodes for demultiplexing and filtering for reads that have a barcode at the end
@@ -56,7 +57,14 @@ processBamFn <- function(bamFN, expN,  chrArmLn=500000, readLnMin=3000, nThreads
     print("print bam input file name: "); print(bamFN)
 
     cat("\nRead in bam file\n")
-    reads <- scanBam(bamFN, nThreads=nThreads)[[1]]
+    ## PATCH: request only the fields this file actually uses. Upstream called scanBam()
+    ## with no ScanBamParam, which materialises every field of every record -- including
+    ## qual, which is the same size as seq and is never referenced here (neither are mrnm,
+    ## mpos or isize). seq IS required: align2tagPQchrFn() scores the barcode against it.
+    ## Output-neutral; verified byte-for-byte against the reference. See docs/PATCHES.md.
+    sbp <- ScanBamParam(what = c("qname", "flag", "rname", "strand", "pos",
+                                 "qwidth", "mapq", "cigar", "seq"))
+    reads <- scanBam(bamFN, param = sbp, nThreads = nThreads)[[1]]
 
     ## adjust positions of q end chromosome arms (use negative coordinates for q arms)
     reads <- data.frame(posEndPQchrFn(reads,  chrArmLn))

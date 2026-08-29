@@ -80,10 +80,13 @@ echo "=============================================================="
 echo "pipeline A:"
 REFBAM="$RES/alignment/${EXPNAME}.sort.bam"
 if [[ -f "$REFBAM" ]]; then
-    printf '  %-46s ' "alignment records (headers excluded)"
-    OURS=$(in_a sh -c 'samtools view /work/aligned.sort.bam | md5sum' 2>/dev/null | awk '{print $1}')
+    # Compare primary alignments only. align.sh now drops secondary/supplementary records
+    # (-F 0x900), so the BAMs differ by construction; -F 0x900 on both sides is the
+    # like-for-like comparison, and it is also what every downstream consumer actually reads.
+    printf '  %-46s ' "primary alignments (headers excluded)"
+    OURS=$(in_a sh -c 'samtools view -F 0x900 /work/aligned.sort.bam | md5sum' 2>/dev/null | awk '{print $1}')
     THEIRS=$(podman run --rm --platform linux/arm64 -v "$RES/alignment:/ref:ro,z" "$IMAGE_A" \
-             sh -c "samtools view /ref/$(basename "$REFBAM") | md5sum" 2>/dev/null | awk '{print $1}')
+             sh -c "samtools view -F 0x900 /ref/$(basename "$REFBAM") | md5sum" 2>/dev/null | awk '{print $1}')
     if [[ -n "$OURS" && "$OURS" == "$THEIRS" ]]; then echo "identical  ($OURS)"
     else echo "DIFFERS"; echo "      ours=$OURS theirs=$THEIRS"; FAILURES=$((FAILURES+1)); fi
 fi
