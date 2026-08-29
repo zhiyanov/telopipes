@@ -94,11 +94,54 @@ aarch64
 Both are detected by reproducing the reference figures: pipeline A `n=4362, median=4589.5`,
 pipeline B `n=5049, median=4378.0`.
 
-## Build timings
+## Finding 3 — the vendored TeloBP matches upstream exactly
 
-Filled in below once measured; see `make images`.
+The reference project vendors GreiderLab TeloBP as a local editable install. Installing it from
+GitHub at a pinned commit is only safe if that commit is what actually produced
+`reference/results/`. It is:
+
+```
+$ git clone https://github.com/GreiderLab/TeloBP.git && git checkout 05bd9d8
+05bd9d8bb27b9d52e69e9c1c4b6607744365ea9f  2025-12-26  "Fixing dependancy issue"
+
+$ diff -rq TeloBP/ reference/pipeline/TeloBP/TeloBP/     # → no differences
+$ diff -rq Scripts/ reference/pipeline/TeloBP/Scripts/   # → no differences
+```
+
+So `pipelines/telonp/requirements.txt` pins
+`TeloBP @ git+https://github.com/GreiderLab/TeloBP@05bd9d8bb27b9d52e69e9c1c4b6607744365ea9f`
+rather than vendoring a second copy into this repo.
+
+## Images as built
 
 | Image | Base | Build time | Size |
 |---|---|---|---|
-| `telomers/pipeline-a:0.1.0` | `rocker/r-ver:4.4.1` | _pending_ | _pending_ |
-| `telomers/pipeline-b:0.1.0` | `python:3.12-slim` | _pending_ | _pending_ |
+| `telomers/pipeline-a:0.1.0` | `rocker/r-ver:4.4.1` | 5 min 06 s | 1.32 GB |
+| `telomers/pipeline-b:0.1.0` | `python:3.12-slim` | 30 s | 634 MB |
+
+Resulting toolchain, for comparison against whatever produced `reference/results/`:
+
+```
+minimap2 2.24-r1122          samtools 1.13
+R 4.4.1                      Bioconductor 3.19
+Biostrings 2.72.1            GenomicAlignments 1.40.0     S4Vectors 0.42.1
+RColorBrewer 1.1.3           optparse 1.8.2               Snakemake 9.26.1
+```
+
+### Three build problems worth recording
+
+1. **`short-name-mode = "enforcing"`.** `/etc/containers/registries.conf` refuses to resolve
+   unqualified image names without a TTY prompt, so every `FROM` must be fully qualified
+   (`docker.io/rocker/r-ver:4.4.1`, not `rocker/r-ver:4.4.1`).
+2. **`rocker/r-ver` ships runtime libraries but no headers.** With no arm64 Bioconductor
+   binaries everything compiles from source, so the build died on `zlib.h`, `curl/curl.h` and
+   the OpenSSL headers, cascading into ~10 misleading "dependency not available" errors.
+   `littler` was collateral damage: `BiocManager::install(version=)` tries to refresh rocker's
+   own packages, so it now passes `update=FALSE` as well.
+3. **`rocker/r-ver` ships no Python at all**, and the base's Ubuntu release decides what apt
+   would give — `r-ver:4.4.x` is Ubuntu 22.04, i.e. Python 3.10, below Snakemake 9's floor.
+   Pinning Snakemake 7 for this image would have split the two pipelines across Snakemake
+   majors and dragged in `datrie`, which has its own build problems. Instead the image gets a
+   standalone Python 3.12 via `uv`, so the orchestrator is independent of the base image and
+   both pipelines stay on Snakemake 9.26.1. This is also why R stays at 4.4 / Bioc 3.19 rather
+   than jumping to a newer rocker tag purely to chase a newer system Python.
