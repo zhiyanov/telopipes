@@ -1,0 +1,84 @@
+# Telo-seq with chromosome assignment. Runs inside telomers/pipeline-d.
+#
+# NCRF measures the telomere; minimap2 says which arm the read came from. The two are joined
+# on read id in assign_arms.py.
+configfile: "/work/config.yaml"
+
+SAMPLE = config["sample_label"]
+
+
+rule all:
+    input:
+        f"{SAMPLE}.teloseq.perread.arms.csv",
+        f"{SAMPLE}.teloseq.summary.txt",
+
+
+rule ncrf:
+    input:
+        reads=config["reads"],
+    output:
+        summary="reads.ncrf.summary",
+        ncrf="reads.ncrf",
+        fasta="reads.fasta",
+    log:
+        "logs/ncrf.log",
+    shell:
+        "bash /opt/telomers/run_ncrf.sh {input.reads} reads > {log} 2>&1"
+
+
+rule lengths:
+    input:
+        summary="reads.ncrf.summary",
+    output:
+        all_csv=f"{SAMPLE}.teloseq.perread.all.csv",
+        passed_csv=f"{SAMPLE}.teloseq.perread.csv",
+        summary_txt=f"{SAMPLE}.teloseq.summary.txt",
+    params:
+        sample=SAMPLE,
+        min_telomere=config.get("min_telomere", 1000),
+        padding=config.get("padding", 200),
+    log:
+        "logs/lengths.log",
+    shell:
+        "python3 /opt/telomers/teloseq_lengths.py {input.summary} ."
+        " --sample '{params.sample}'"
+        " --min-telomere {params.min_telomere}"
+        " --padding {params.padding}"
+        " > {log} 2>&1"
+
+
+rule align:
+    input:
+        reads=config["reads"],
+        ref=config["reference"],
+    output:
+        bam="aligned.sort.bam",
+        bai="aligned.sort.bam.bai",
+    threads: config.get("threads", 4)
+    log:
+        "logs/align.log",
+    shell:
+        # Same preset and secondary/supplementary filter as the mapping-based pipeline, for
+        # the same reasons -- see pipelines/telomere-r/scripts/align.sh.
+        "( minimap2 -t {threads} -ax map-ont -Y {input.ref} {input.reads}"
+        " | samtools view -u -F 0x900 -"
+        " | samtools sort -@ {threads} -o {output.bam} -"
+        " && samtools index {output.bam} ) > {log} 2>&1"
+
+
+rule assign_arms:
+    input:
+        perread=f"{SAMPLE}.teloseq.perread.csv",
+        bam="aligned.sort.bam",
+        bai="aligned.sort.bam.bai",
+    output:
+        f"{SAMPLE}.teloseq.perread.arms.csv",
+    params:
+        arm_length=config["chr_arm_ln"],
+        map_start=config.get("map_start_threshold", 1000),
+    log:
+        "logs/assign_arms.log",
+    shell:
+        "python3 /opt/telomers/assign_arms.py {input.perread} {input.bam} {output}"
+        " --arm-length {params.arm_length}"
+        " --map-start-threshold {params.map_start} > {log} 2>&1"

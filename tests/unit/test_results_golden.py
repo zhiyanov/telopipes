@@ -109,3 +109,47 @@ def test_normalise_writes_all_three_files(telonp_work, tmp_path):
     # Reference-free, so there is nothing to report per arm -- the file must be absent rather
     # than empty, since the interface keys the per-arm view off its existence.
     assert got.per_arm is None
+
+
+@pytest.fixture
+def teloseq_work(tmp_path):
+    for name in ("HG002.1.NB65uq.teloseq.perread.all.csv",
+                 "HG002.1.NB65uq.teloseq.perread.csv"):
+        (tmp_path / name).write_text((GOLDEN / name).read_text())
+    return tmp_path
+
+
+def test_teloseq_reproduces_published_summary(teloseq_work):
+    rows = results.read_teloseq(teloseq_work)
+    summary = results.summarise(rows, pipeline_id="teloseq")
+    # HG002.1.NB65uq.teloseq.summary.txt
+    assert summary["reads"]["total"] == 4234
+    assert summary["reads"]["passed"] == 2521
+    tel = summary["telomere_bp"]
+    assert (tel["mean"], tel["median"], tel["sd"]) == (5773.7, 4665.0, 5622.5)
+    assert (tel["min"], tel["max"]) == (1000, 103431)
+
+
+def test_teloseq_pass_set_comes_from_the_pipeline_not_the_flags(teloseq_work):
+    """Re-deriving it from is_terminal and started_correctly omits the minimum tract length,
+    which reported 2,922 passing reads against the 2,521 the pipeline actually kept."""
+    rows = results.read_teloseq(teloseq_work)
+    flags_only = sum(1 for r in rows if r["qc_reason"] in ("", "tract_too_short"))
+    assert flags_only == 2922                      # what the flags alone would have said
+    assert sum(1 for r in rows if r["qc_status"] == "pass") == 2521
+
+
+def test_teloseq_without_a_reference_reports_no_arms(teloseq_work):
+    rows = results.read_teloseq(teloseq_work)
+    assert not any(r["chrom_arm"] for r in rows)
+    assert results.per_arm(rows) == []
+
+
+def test_teloseq_max_tract_is_an_outlier_not_a_telomere(teloseq_work):
+    """NCRF's length is end.max - start.min, so a read carrying an interstitial repeat spans
+    the intervening sequence. 103 kb is not a telomere, and the metric has to be read with
+    that in mind."""
+    rows = results.read_teloseq(teloseq_work)
+    lengths = [float(r["telomere_bp"]) for r in rows if r["qc_status"] == "pass"]
+    assert max(lengths) == 103431
+    assert sum(1 for v in lengths if v > 20000) / len(lengths) < 0.05

@@ -179,3 +179,56 @@ reproduces the v0.7 result almost exactly — median 4,593.5 vs 4,589.5 bp, n 4,
 and 36 of 46 arms agree within 50 bp. The two arms that move are both acrocentric: `chr15p`
 loses 166 reads and `chr22p` gains 165, i.e. v1.2 separates two near-identical short arms that
 v0.7 conflated. `chr14p`, the shortest-telomere result, is unchanged.
+
+---
+
+## Telo-seq (P7–P9)
+
+Added as two pipelines, mirroring the existing reference-free / mapping split:
+`teloseq` (NCRF alone) and `teloseq-mapped` (NCRF plus chromosome assignment).
+
+**P7 — NCRF's helper scripts converted from Python 2.** `ncrf_cat.py`, `ncrf_summary.py` and
+`ncrf_parse.py` are Python 2, and the reference implementation got a `python2` interpreter free
+from its Debian base. Ours does not have one, and installing an end-of-life interpreter to run
+641 lines is the wrong trade. `lib2to3` handles the print statements; it does **not** handle
+the removed `file()` builtin or `string.maketrans` moving onto `str`, both patched explicitly.
+Only the three scripts actually used are converted — the rest of NCRF's toolbox contains more
+Python 2 (`xrange` and friends) and converting code that is never called would be unverifiable
+churn. A build-time smoke test asserts a synthetic read with a known 240 bp tract still
+measures 240 bp at 100% identity, so a silent regression fails the build rather than someone's
+data.
+
+**P8 — the length caller is reimplemented, not imported.** The reference driver `importlib`-loaded
+three functions out of `teloseq/scripts/ncrf.summary.stats.py`, making a path inside a vendored
+20-conda-environment repo a hard runtime dependency for the sake of ~60 lines. They are ported
+into `teloseq_lengths.py` so everything runs inside the image.
+**Verified:** output is identical to `reference/results/teloseq/` — 4,234 tracts, 2,521 passing,
+median 4,665.0 bp, including the per-motif breakdown.
+
+**P9 — arm assignment does not use Telo-seq's own anchoring.** The published pipeline maps to a
+reference that *retains* its telomeres and checks in `filter_bam_2023.py` that the alignment
+spans telomere and subtelomere intervals from a per-assembly anchor TSV — an artefact
+`build_telomere_reference.py` generates and which is not present in the vendored copy. We map
+to the same cut reference the mapping-based pipeline uses and require the alignment to start
+near the subtelomere boundary. The intent is the same (the read must genuinely reach a
+chromosome end) but the mechanism differs, so arm assignments need not agree read-for-read with
+the published tool. This keeps a single reference type in the application: one registered
+reference serves both mapping pipelines.
+
+### What the split shows
+
+Run on HG002.1.NB65uq against the v1.2 maternal cut reference, 2,363 of 2,521 sequence-filtered
+reads (93.7%) were placed on an arm. Against `telomere-r` on the same reads and reference,
+**39 of 46 arms agree within 500 bp** (median difference 79 bp) — much closer than the
+r ≈ 0.25–0.31 per-read correlation reported for the reference-free variant would suggest.
+
+The disagreement is concentrated rather than diffuse: `chr19q` reports 23,578 bp against
+`telomere-r`'s 3,441 bp. That is NCRF's `end.max - start.min` spanning an interstitial
+telomeric repeat, and chr19 is known to carry them. Across the sample, 3.8% of reads have
+tracts over 20 kb, up to 103 kb — not telomeres. A single arm like this drags the per-arm
+correlation to r = 0.096 while 39 arms sit within 500 bp, which is exactly why the correlation
+coefficient alone is the wrong summary here.
+
+The practical value of the mapped variant is that it makes the artefact *localised and
+visible*. In the reference-free view the same reads are smeared into a bulk distribution where
+nothing points at chr19.

@@ -1,0 +1,6 @@
+# Pinned for the same reason as pipeline B: leaving them open lets an unrelated release change
+# results silently.
+pandas==2.2.3
+numpy==2.0.2
+matplotlib==3.9.2
+snakemake==9.26.1

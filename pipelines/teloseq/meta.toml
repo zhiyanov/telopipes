@@ -1,0 +1,14 @@
+[pipeline]
+id      = "teloseq"
+version = "1.0.0"
+title   = "Telo-seq / NCRF (Schmidt 2024), reference-free"
+summary = """Finds telomeric repeat tracts in each read with Noise Cancelling Repeat Finder and \
+reports the span from the first to the last repeat. Needs no reference genome. Note this is a \
+different quantity from the other pipelines, which measure to a telomere boundary: a read with \
+an interstitial repeat gets an inflated length, so check the segments column."""
+citation = "Schmidt et al., Nature Communications 2024"
+upstream = "https://github.com/Priyesh000/teloseq"
+
+image              = "telomers/pipeline-c:0.1.0"
+requires_reference = false
+provides           = ["per_read", "bulk", "pipeline_plots"]

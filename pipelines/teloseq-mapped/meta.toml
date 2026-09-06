@@ -1,0 +1,14 @@
+[pipeline]
+id      = "teloseq-mapped"
+version = "1.0.0"
+title   = "Telo-seq / NCRF (Schmidt 2024), with chromosome assignment"
+summary = """Measures the telomeric repeat tract with NCRF as the reference-free variant does, \
+then maps the reads to a cut reference to say which chromosome arm each came from. Reports \
+per-arm results. The length is still NCRF's repeat span, not a boundary measurement, so it is \
+not directly comparable with the mapping-based pipeline's numbers."""
+citation = "Schmidt et al., Nature Communications 2024"
+upstream = "https://github.com/Priyesh000/teloseq"
+
+image              = "telomers/pipeline-d:0.1.0"
+requires_reference = true
+provides           = ["per_read", "bulk", "per_arm", "pipeline_plots"]

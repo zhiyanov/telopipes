@@ -125,7 +125,71 @@ def read_telonp(work: Path) -> list[dict]:
     return rows
 
 
-READERS = {"telomere-r": read_telomere_r, "telonp": read_telonp}
+def read_teloseq(work: Path) -> list[dict]:
+    """Telo-seq, either variant.
+
+    The pass set is taken from the pipeline's own filtered table rather than re-derived from
+    the flags. Re-deriving it is how this first went wrong: the flags alone omit the minimum
+    tract length, so the canonical summary disagreed with the pipeline's -- 2,922 "passing"
+    reads against the 2,521 the pipeline actually kept. The failure reasons are still worked
+    out from the flags, since that is the only place they exist.
+    """
+    all_csv = sorted(work.glob("*.teloseq.perread.all.csv"))
+    if not all_csv:
+        raise FileNotFoundError(f"no *.teloseq.perread.all.csv under {work}")
+    passed_csv = sorted(work.glob("*.teloseq.perread.csv"))
+    arms_csv = sorted(work.glob("*.teloseq.perread.arms.csv"))
+
+    def load(path: Path) -> dict[str, dict]:
+        with path.open(newline="") as handle:
+            return {r["read_id"]: r for r in csv.DictReader(handle)}
+
+    kept = set(load(passed_csv[0])) if passed_csv else set()
+    placed = load(arms_csv[0]) if arms_csv else {}
+
+    rows = []
+    with all_csv[0].open(newline="") as handle:
+        for record in csv.DictReader(handle):
+            read_id = record["read_id"]
+            terminal = record.get("is_terminal", "").strip().lower() == "true"
+            oriented = record.get("started_correctly", "").strip().lower() == "true"
+            arm = (placed.get(read_id) or {}).get("chrom_arm", "")
+
+            sequence_ok = read_id in kept
+            passed = sequence_ok and (bool(arm) if arms_csv else True)
+
+            if not terminal:
+                reason = "not_terminal"
+            elif not oriented:
+                reason = "wrong_orientation"
+            elif not sequence_ok:
+                reason = "tract_too_short"
+            elif arms_csv and not arm:
+                reason = "no_arm_assignment"
+            else:
+                reason = ""
+
+            hit = placed.get(read_id) or {}
+            rows.append({
+                "read_id": read_id,
+                "telomere_bp": record.get("telomere_len", "") if passed else "",
+                "read_length_bp": record.get("read_len", ""),
+                "chrom_arm": arm,
+                "haplotype": hit.get("haplotype", ""),
+                "strand": "",
+                "mapq": hit.get("mapq", ""),
+                "qc_status": "pass" if passed else "fail",
+                "qc_reason": reason,
+            })
+    return rows
+
+
+READERS = {
+    "telomere-r": read_telomere_r,
+    "telonp": read_telonp,
+    "teloseq": read_teloseq,
+    "teloseq-mapped": read_teloseq,
+}
 
 
 def _describe(values: list[float]) -> dict:

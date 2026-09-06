@@ -121,7 +121,41 @@ class TelomereRParams(BaseModel):
         return self
 
 
+class TeloSeqParams(BaseModel):
+    """Telo-seq, reference-free. NCRF tract measurement only."""
+
+    sample_label: SampleLabel
+    min_telomere: int = Field(
+        1000, ge=0,
+        description="Drop reads whose repeat tract is shorter than this",
+    )
+    padding: int = Field(
+        200, ge=0,
+        description="How close to a read end the tract must start or finish for the read to "
+                    "count as terminal",
+    )
+
+
+class TeloSeqMappedParams(TeloSeqParams):
+    """Telo-seq plus chromosome assignment from a cut reference."""
+
+    #: Derived from the registered reference, exactly as for the mapping-based pipeline.
+    chr_arm_ln: int = Field(
+        500_000, ge=1000,
+        description="Per-record length of the cut reference. Read from the reference you "
+                    "select; the q-arm boundary distance is measured back from it.",
+    )
+    map_start_threshold: int = Field(
+        1000, ge=0,
+        description="Maximum distance of the alignment start from the subtelomere boundary "
+                    "for a read to be assigned to that arm",
+    )
+    threads: int = Field(4, ge=1, le=32)
+
+
 PARAMS_MODELS: dict[str, type[BaseModel]] = {
     "telomere-r": TelomereRParams,
     "telonp": TeloNPParams,
+    "teloseq": TeloSeqParams,
+    "teloseq-mapped": TeloSeqMappedParams,
 }
