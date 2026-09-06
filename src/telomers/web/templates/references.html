@@ -39,6 +39,16 @@
     <input type="file" name="upload">
     <small>cut FASTA — checked before it is accepted</small>
   </label>
+  <label class="inline"><input type="checkbox" name="cut" value="1"> This is a whole genome — cut it
+    <small>A telomere-to-telomere assembly cannot be used directly: the pipeline measures the
+    telomere as what the aligner had to clip, which needs a reference with no telomere in it.
+    Cutting also splits each chromosome into p and q arms and normalises the contig names.</small>
+  </label>
+  <label>Haplotype <select name="haplotype">
+      <option value="all">both (diploid)</option>
+      <option value="MATERNAL">maternal only</option>
+      <option value="PATERNAL">paternal only</option>
+    </select><small>Only applies when cutting a diploid assembly.</small></label>
   <label>Name <input type="text" name="name" placeholder="defaults to the filename"></label>
   <p><button type="submit" class="primary">Register</button></p>
 </form>

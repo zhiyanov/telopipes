@@ -150,3 +150,32 @@ it exactly (checked by `scripts/reproduce-reference.sh`).
 
 P2 and P3 together took the R analysis step from **20 s to 7.6 s** on the reference dataset,
 and the BAM from **566 MB to 98 MB**, with every output byte-identical.
+
+---
+
+## Reference cutting (new, not a patch to upstream)
+
+`pipelines/telomere-r/scripts/cut_reference.py` derives a cut reference from a whole genome.
+Written from scratch rather than calling TeloBP's `trimTeloReferenceGenome()`, which emits
+`_C`/`_G` suffixes rather than `p`/`q` and, when an end's telomere length is zero, evaluates
+`record[-0-N:-0]` — that is `record[-N:0]` — producing an empty record.
+
+Two decisions worth recording:
+
+**Naming is normalised here, not downstream.** `chr1_MATERNAL` becomes `chr01p_MATERNAL` and
+`chr01q_MATERNAL`. This is the only place it can be fixed: `posEndPQchrFn()` zero-pads on one
+line and overwrites the result from `rname` on the next, so its own repair never runs, and an
+unpadded name does not error — it just sorts wrongly everywhere.
+
+**A candidate telomere tract needs a quality floor.** Repeat matches are walked outward from
+the terminus and merged across gaps up to 250 bp, mirroring Telo-seq's
+`build_telomere_reference.py`. Without a floor, two chance hexamers near a telomere-less
+terminus trim a spurious ~150 bp, which silently shifts that arm's coordinate frame relative to
+every other arm. A tract must now be ≥100 bp and ≥60% matched. Five-mers (`CCTAA`, `TTAGG`)
+were dropped from the patterns for the same reason: they occur by chance every ~1 kb.
+
+**Validation.** Cutting HG002 v1.2 (maternal) and re-running pipeline A on the same reads
+reproduces the v0.7 result almost exactly — median 4,593.5 vs 4,589.5 bp, n 4,358 vs 4,362,
+and 36 of 46 arms agree within 50 bp. The two arms that move are both acrocentric: `chr15p`
+loses 166 reads and `chr22p` gains 165, i.e. v1.2 separates two near-identical short arms that
+v0.7 conflated. `chr14p`, the shortest-telomere result, is unchanged.

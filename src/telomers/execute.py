@@ -162,3 +162,50 @@ def cancel(run_id: str) -> None:
         [settings.container_engine, "stop", "--time", "10", f"telomers-{run_id}"],
         check=False, capture_output=True,
     )
+
+
+# --------------------------------------------------------------------------- reference prep
+
+def cut_reference(
+    genome: Path,
+    out_fasta: Path,
+    *,
+    arm_length: int = 500_000,
+    haplotype: str = "all",
+    pipeline_id: str = "telomere-r",
+    echo: bool = True,
+) -> str:
+    """Derive a cut reference from a whole genome, in the pipeline's own container.
+
+    Run in the image rather than on the host so the cutting is done by exactly the code that
+    ships with the pipeline -- the same file, not a copy that can drift. It is pure standard
+    library, so the container costs nothing but the round trip.
+    """
+    from . import pipelines as _pipelines
+
+    pipeline = _pipelines.get(pipeline_id)
+    genome = genome.resolve()
+    out_fasta.parent.mkdir(parents=True, exist_ok=True)
+    out_dir = out_fasta.parent.resolve()
+
+    cmd = [settings.container_engine, "run", "--rm"]
+    if settings.platform:
+        cmd += ["--platform", settings.platform]
+    cmd += [
+        "-v", f"{genome}:/genome/{genome.name}:ro,z",
+        "-v", f"{out_dir}:/out:z",
+        "-w", "/out", pipeline.image,
+        "python3", "/opt/telomers/cut_reference.py",
+        f"/genome/{genome.name}", f"/out/{out_fasta.name}",
+        "--arm-length", str(arm_length),
+        "--haplotype", haplotype,
+        "--report", f"/out/{out_fasta.stem}.report.json",
+    ]
+    if echo:
+        print("$ " + " ".join(cmd), flush=True)
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    if echo and proc.stdout:
+        print(proc.stdout, end="")
+    if proc.returncode != 0:
+        raise RuntimeError((proc.stderr or proc.stdout or "cutting failed").strip())
+    return proc.stdout

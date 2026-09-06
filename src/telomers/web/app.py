@@ -304,20 +304,25 @@ async def datasets_create(request: Request,
 async def references_create(request: Request,
                             path: str = Form(""),
                             name: str = Form(""),
+                            cut: str = Form(""),
+                            haplotype: str = Form("all"),
                             upload: UploadFile | None = None):
+    opts = {"cut": bool(cut), "haplotype": haplotype if haplotype in
+            ("all", "MATERNAL", "PATERNAL") else "all"}
     try:
         if path:
             storage.check_import_allowed(Path(path))
-            meta = storage.register_reference(Path(path), name=name or None)
+            meta = storage.register_reference(Path(path), name=name or None, **opts)
         elif upload is not None and upload.filename:
             staged = _stage_upload(upload)
             try:
-                meta = storage.register_reference(staged, name=name or upload.filename, link=False)
+                meta = storage.register_reference(staged, name=name or upload.filename,
+                                                  link=False, **opts)
             finally:
                 staged.unlink(missing_ok=True)
         else:
             return _flash(request, "give a server path or choose a file", "bad")
-    except (PermissionError, ValueError, FileNotFoundError) as exc:
+    except (PermissionError, ValueError, FileNotFoundError, RuntimeError) as exc:
         return _flash(request, str(exc), "bad")
 
     with db.session() as session:

@@ -157,28 +157,45 @@ def register_dataset(source: Path, *, name: str | None = None, link: bool = True
     return meta
 
 
-def register_reference(source: Path, *, name: str | None = None, link: bool = True) -> dict:
+def register_reference(source: Path, *, name: str | None = None, link: bool = True,
+                       cut: bool = False, arm_length: int = 500_000,
+                       haplotype: str = "all") -> dict:
     """Validate a cut reference and bring it into the data root.
 
     Rejected outright if it does not validate: an unusable reference caught here is a clear
     error message, whereas the same reference caught nowhere produces plausible-looking but
     wrong q-arm telomere lengths. See validate.validate_reference.
     """
-    from . import validate
+    from . import execute, validate
 
     source = Path(source)
     if not source.is_file():
         raise FileNotFoundError(source)
+
+    label = name or source.name
+    directory = references_dir() / unique_id(slugify(Path(label).stem), references_dir())
+
+    if cut:
+        # A whole genome cannot be used directly: telomere-r measures the telomere as the
+        # soft clip, which only works when the reference has no telomere to align against.
+        # Derive the cut form first -- see pipelines/telomere-r/scripts/cut_reference.py.
+        directory.mkdir(parents=True, exist_ok=True)
+        derived = directory / "reference.fasta"
+        execute.cut_reference(source, derived, arm_length=arm_length, haplotype=haplotype)
+        source_for_meta, source, link = Path(source).resolve(), derived, None
+    else:
+        source_for_meta = source.resolve()
 
     info = validate.validate_reference(source)
     if not info.ok:
         raise ValueError(f"{source.name} is not a usable cut reference:\n  - "
                          + "\n  - ".join(info.errors))
 
-    label = name or source.name
-    directory = references_dir() / unique_id(slugify(Path(label).stem), references_dir())
-    suffix = ".fasta.gz" if source.name.endswith(".gz") else ".fasta"
-    result = ingest(source, directory / f"reference{suffix}", allow_link=link)
+    if link is None:                      # already written in place by the cutter
+        result = ImportResult(source, sha256_of(source), source.stat().st_size, False)
+    else:
+        suffix = ".fasta.gz" if source.name.endswith(".gz") else ".fasta"
+        result = ingest(source, directory / f"reference{suffix}", allow_link=link)
 
     meta = {
         "id": directory.name,
@@ -190,7 +207,8 @@ def register_reference(source: Path, *, name: str | None = None, link: bool = Tr
         "arm_length_bp": info.arm_length_bp,
         "haplotypes": ",".join(info.haplotypes),
         "warnings": info.warnings,
-        "source": str(source.resolve()),
+        "source": str(source_for_meta),
+        "cut_from_genome": bool(cut),
         "linked": result.linked,
         "created": datetime.now(timezone.utc).isoformat(),
     }

@@ -189,8 +189,11 @@ def cmd_references(args: argparse.Namespace) -> int:
         if args.registered:
             storage.check_import_allowed(source)
         try:
-            meta = storage.register_reference(source, name=args.name, link=not args.copy)
-        except ValueError as exc:
+            meta = storage.register_reference(
+                source, name=args.name, link=not args.copy,
+                cut=args.cut, arm_length=args.arm_length, haplotype=args.haplotype,
+            )
+        except (ValueError, RuntimeError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 2
         with db.session() as s:
@@ -199,6 +202,8 @@ def cmd_references(args: argparse.Namespace) -> int:
         print(f"{meta['id']}  {meta['name']}")
         print(f"  {meta['n_records']} records, arm length {meta['arm_length_bp']:,} bp"
               f"  haplotypes: {meta['haplotypes'] or 'none'}")
+        if meta.get("cut_from_genome"):
+            print(f"  cut from {meta['source']}")
         for warning in meta["warnings"]:
             print(f"  warning: {warning}")
         return 0
@@ -320,6 +325,12 @@ def main(argv: list[str] | None = None) -> int:
     p_ref.add_argument("--name")
     p_ref.add_argument("--copy", action="store_true")
     p_ref.add_argument("--registered", action="store_true")
+    p_ref.add_argument("--cut", action="store_true",
+                       help="the file is a whole genome; derive a cut reference from it")
+    p_ref.add_argument("--arm-length", type=int, default=500_000,
+                       help="bases kept per chromosome end when cutting [%(default)s]")
+    p_ref.add_argument("--haplotype", choices=["MATERNAL", "PATERNAL", "all"], default="all",
+                       help="keep one haplotype of a diploid assembly when cutting [%(default)s]")
     p_ref.set_defaults(func=cmd_references)
 
     p_res = sub.add_parser("results", help="show a run's canonical summary")
